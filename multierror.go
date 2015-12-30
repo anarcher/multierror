@@ -38,7 +38,7 @@ func (e *MultiError) Add(err error) bool {
 		return true
 	}
 
-	if err != e.err {
+	if err.Error() != e.err.Error() {
 		return false
 	}
 
