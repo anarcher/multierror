@@ -3,6 +3,7 @@ package multierror
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestZeroErrors(t *testing.T) {
@@ -50,4 +51,27 @@ func TestErrorCount(t *testing.T) {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
+}
+
+func TestErrorReport(t *testing.T) {
+	ch := make(chan time.Time)
+	tick = func(time.Duration) <-chan time.Time { return ch }
+	defer func() { tick = time.Tick }()
+
+	ok := false
+	reportFunc := func(e error, cnt int, me *MultiError) {
+		ok = true
+		t.Logf("e:%v c:%v", e, cnt)
+	}
+	errs := NewWithReport(time.Second, reportFunc)
+
+	if errs.Add(errors.New("ERR1")) == false {
+		t.Errorf("want true,have false")
+	}
+
+	ch <- time.Now()
+
+	if want, have := true, ok; want != have {
+		t.Errorf("want %v,have %v", want, have)
+	}
 }
