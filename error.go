@@ -11,7 +11,8 @@ var (
 	tick = time.Tick
 )
 
-type ReportFunc func([]*ErrorItem, *Error)
+//If The return of the ReportFunc is true,The Error resets the internal errors
+type ReportFunc func([]*ErrorItem, *Error) bool
 
 type ErrorItem struct {
 	err error
@@ -72,7 +73,9 @@ func (e *Error) Add(err error) {
 		e.errs = append(e.errs, errItem)
 
 		if e.reportFunc != nil {
-			e.reportFunc(e.errs, e)
+			if e.reportFunc(e.errs, e) == true {
+				e.reset()
+			}
 		}
 	}
 	e.mutex.Unlock()
@@ -122,8 +125,12 @@ func (e *Error) Errors() []error {
 
 func (e *Error) Reset() {
 	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.reset()
+}
+
+func (e *Error) reset() {
 	e.errs = e.errs[:0]
-	e.mutex.Unlock()
 }
 
 func (e *Error) fwd(d time.Duration) {
@@ -131,9 +138,12 @@ func (e *Error) fwd(d time.Duration) {
 	for {
 		<-tick
 		e.mutex.RLock()
-		if len(e.errs) > 0 {
-			e.reportFunc(e.errs, e)
-		}
+		cnt := len(e.errs)
 		e.mutex.RUnlock()
+		if cnt > 0 {
+			if e.reportFunc(e.errs, e) == true {
+				e.Reset()
+			}
+		}
 	}
 }

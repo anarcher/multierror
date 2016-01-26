@@ -62,9 +62,10 @@ func TestErrorReport(t *testing.T) {
 	defer func() { tick = time.Tick }()
 
 	ok := false
-	reportFunc := func(e []*ErrorItem, me *Error) {
+	reportFunc := func(e []*ErrorItem, me *Error) bool {
 		ok = true
 		t.Logf("e:%v", e)
+		return false
 	}
 	errs := NewWithReport(time.Second, reportFunc)
 	errs.Add(errors.New("ERR1"))
