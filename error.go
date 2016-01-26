@@ -73,9 +73,7 @@ func (e *Error) Add(err error) {
 		e.errs = append(e.errs, errItem)
 
 		if e.reportFunc != nil {
-			if e.reportFunc(e.errs, e) == true {
-				e.reset()
-			}
+			e.reportFunc(e.errs, e)
 		}
 	}
 	e.mutex.Unlock()
