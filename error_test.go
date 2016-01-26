@@ -8,46 +8,50 @@ import (
 
 func TestZeroErrors(t *testing.T) {
 	e := New()
-	if e.err != nil {
-		t.Errorf("want %q, have %q", nil, e.err)
+	if want, have := 0, e.Len(); want != have {
+		t.Errorf("want %v, have %v", want, have)
 	}
 }
 
-func TestZeroCountIfErrorIsNil(t *testing.T) {
+func TestZeroLenIfErrorIsNil(t *testing.T) {
 	var e error
 	errs := New()
 	errs.Add(e)
 	errs.Add(e)
 
-	if want, have := 0, errs.Count(); want != have {
+	if want, have := 0, errs.Len(); want != have {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
 	e1 := errors.New("e1")
-	if want, have := true, errs.Add(e1); want != have {
+	errs.Add(e1)
+	if want, have := 1, errs.Len(); want != have {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
 	e2 := errors.New("e1")
-	if want, have := true, errs.Add(e2); want != have {
+	errs.Add(e2)
+	if want, have := 1, errs.Len(); want != have {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
 }
 
-func TestErrorCount(t *testing.T) {
+func TestErrorLen(t *testing.T) {
 	errs := New()
 	e1 := errors.New("e1")
-	if want, have := true, errs.Add(e1); want != have {
+	errs.Add(e1)
+	if want, have := 1, errs.Len(); want != have {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
-	e2 := errors.New("e1")
-	if want, have := true, errs.Add(e2); want != have {
+	errs.Add(errors.New("e1"))
+	if want, have := 1, errs.Len(); want != have {
 		t.Errorf("want %v, have %v", want, have)
 	}
 
-	if want, have := 2, errs.Count(); want != have {
+	if want, have := 2, errs.Count(e1); want != have {
+		t.Logf("%v", errs.cnts)
 		t.Errorf("want %v, have %v", want, have)
 	}
 
@@ -59,14 +63,15 @@ func TestErrorReport(t *testing.T) {
 	defer func() { tick = time.Tick }()
 
 	ok := false
-	reportFunc := func(e error, cnt int, me *MultiError) {
+	reportFunc := func(e []error, cnt []int, me *Error) {
 		ok = true
 		t.Logf("e:%v c:%v", e, cnt)
 	}
 	errs := NewWithReport(time.Second, reportFunc)
+	errs.Add(errors.New("ERR1"))
 
-	if errs.Add(errors.New("ERR1")) == false {
-		t.Errorf("want true,have false")
+	if want, have := 1, errs.Len(); want != have {
+		t.Errorf("want %v,have %v", want, have)
 	}
 
 	ch <- time.Now()
