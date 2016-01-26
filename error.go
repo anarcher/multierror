@@ -11,19 +11,34 @@ var (
 	tick = time.Tick
 )
 
-type ReportFunc func([]error, []int, *Error)
+type ReportFunc func([]*ErrorItem, *Error)
+
+type ErrorItem struct {
+	err error
+	cnt int
+}
+
+func (e *ErrorItem) Error() string {
+	return e.err.Error()
+}
+
+func (e ErrorItem) Get() error {
+	return e.err
+}
+
+func (e ErrorItem) Count() int {
+	return e.cnt
+}
 
 type Error struct {
-	errs       []error
-	cnts       []int
+	errs       []*ErrorItem
 	reportFunc ReportFunc
 	mutex      sync.RWMutex
 }
 
 func New() *Error {
 	e := &Error{
-		errs: make([]error, 0),
-		cnts: make([]int, 0),
+		errs: make([]*ErrorItem, 0),
 	}
 	return e
 }
@@ -42,19 +57,22 @@ func (e *Error) Add(err error) {
 
 	e.mutex.Lock()
 	ok := false
-	for i, _err := range e.errs {
+	for _, _err := range e.errs {
 		if err.Error() == _err.Error() {
-			e.cnts[i]++
+			_err.cnt++
 			ok = true
 			break
 		}
 	}
 	if !ok {
-		e.errs = append(e.errs, err)
-		e.cnts = append(e.cnts, 1)
+		errItem := &ErrorItem{
+			err: err,
+			cnt: 1,
+		}
+		e.errs = append(e.errs, errItem)
 
 		if e.reportFunc != nil {
-			e.reportFunc(e.errs, e.cnts, e)
+			e.reportFunc(e.errs, e)
 		}
 	}
 	e.mutex.Unlock()
@@ -70,9 +88,9 @@ func (e *Error) Count(err error) int {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	for i, _err := range e.errs {
-		if _err.Error() == err.Error() && i < len(e.cnts) {
-			return e.cnts[i]
+	for _, _err := range e.errs {
+		if _err.Error() == err.Error() {
+			return _err.cnt
 		}
 	}
 	return 0
@@ -84,7 +102,7 @@ func (e *Error) Error() string {
 
 	msgs := make([]string, len(e.errs))
 	for i, err := range e.errs {
-		msgs[i] = fmt.Sprintf("%s", err)
+		msgs[i] = fmt.Sprintf("%s (%v)", err, err.Count())
 	}
 
 	return strings.Join(msgs, "\n")
@@ -94,13 +112,17 @@ func (e *Error) Errors() []error {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	return e.errs
+	errs := make([]error, len(e.errs))
+	for _, err := range e.errs {
+		errs = append(errs, err)
+	}
+
+	return errs
 }
 
 func (e *Error) Reset() {
 	e.mutex.Lock()
 	e.errs = e.errs[:0]
-	e.cnts = e.cnts[:0]
 	e.mutex.Unlock()
 }
 
@@ -110,7 +132,7 @@ func (e *Error) fwd(d time.Duration) {
 		<-tick
 		e.mutex.RLock()
 		if len(e.errs) > 0 {
-			e.reportFunc(e.errs, e.cnts, e)
+			e.reportFunc(e.errs, e)
 		}
 		e.mutex.RUnlock()
 	}

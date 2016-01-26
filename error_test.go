@@ -51,7 +51,6 @@ func TestErrorLen(t *testing.T) {
 	}
 
 	if want, have := 2, errs.Count(e1); want != have {
-		t.Logf("%v", errs.cnts)
 		t.Errorf("want %v, have %v", want, have)
 	}
 
@@ -63,9 +62,9 @@ func TestErrorReport(t *testing.T) {
 	defer func() { tick = time.Tick }()
 
 	ok := false
-	reportFunc := func(e []error, cnt []int, me *Error) {
+	reportFunc := func(e []*ErrorItem, me *Error) {
 		ok = true
-		t.Logf("e:%v c:%v", e, cnt)
+		t.Logf("e:%v", e)
 	}
 	errs := NewWithReport(time.Second, reportFunc)
 	errs.Add(errors.New("ERR1"))
