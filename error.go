@@ -34,6 +34,7 @@ func (e ErrorItem) Count() int {
 type Error struct {
 	errs       []*ErrorItem
 	reportFunc ReportFunc
+	lastReport time.Time
 	mutex      sync.RWMutex
 }
 
@@ -71,10 +72,7 @@ func (e *Error) Add(err error) {
 			cnt: 1,
 		}
 		e.errs = append(e.errs, errItem)
-
-		if e.reportFunc != nil {
-			e.reportFunc(e.errs, e)
-		}
+		e.firstReport()
 	}
 	e.mutex.Unlock()
 }
@@ -139,9 +137,27 @@ func (e *Error) fwd(d time.Duration) {
 		cnt := len(e.errs)
 		e.mutex.RUnlock()
 		if cnt > 0 {
-			if e.reportFunc(e.errs, e) == true {
-				e.Reset()
-			}
+			e.reportWithReset()
 		}
 	}
+}
+
+func (e *Error) firstReport() {
+	if time.Since(e.lastReport) >= 1*time.Minute {
+		e.report(false)
+	}
+}
+
+func (e *Error) reportWithReset() {
+	e.report(true)
+}
+
+func (e *Error) report(reset bool) {
+	if e.reportFunc == nil {
+		return
+	}
+	if e.reportFunc(e.errs, e) == true && reset == true {
+		e.Reset()
+	}
+	e.lastReport = time.Now()
 }
